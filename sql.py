@@ -15,7 +15,8 @@ class SQLDB:
             ''' % (table, )
         self.c.execute(sql)
         self.conn.commit()
-        
+     
+       
     def __create_table_if_not_exists(self, table):
         try:
             self.__get_table_schema(table)
@@ -64,6 +65,18 @@ class SQLDB:
             try:self.__add_column(table, field, field_type)
             except:pass
     
+    def drop_tables(self):
+        sql = 'select name from sqlite_master where type = \'table\''
+        self.c.execute(sql)
+        tables = self.c.fetchall()
+        for table in tables:
+            self.drop_table(table[0])
+    
+    def drop_table(self, table):
+        sql = 'drop table if exists ' + table
+        self.c.execute(sql)
+        self.conn.commit()
+        
     def save(self, table, data, check_field, table_should_exists=False):
         if not table_should_exists: self.__create_table_if_not_exists(table)
         keys, values = self.__reorder_values(table, data)
