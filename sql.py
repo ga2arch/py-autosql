@@ -48,7 +48,6 @@ class SQLDB:
         tmp = schema.split('(')[1].split(')')[0].split(',')
         for t in tmp:
             r_key = t.strip().split(' ')[0]
-            if 'foreign' in r_key.lower(): continue
             keys.append(r_key)
             if r_key in data.keys():
                 values.append(data[r_key])
@@ -89,4 +88,4 @@ class SQLDB:
         return self.c.fetchone()[0]
 
 db = SQLDB('test.sqlite')
-db.save('Lw', dict(nome='Luca'), 'nome', False)   
+db.save('LOW', dict(nome='Luca'), 'nome', False)   
