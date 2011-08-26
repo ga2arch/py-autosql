@@ -77,28 +77,30 @@ class SQLDB:
         self.c.execute(sql)
         self.conn.commit()
         
-    def save(self, table, data, check_field, table_should_exists=False):
+    def save(self, table, data, check_field=None, table_should_exists=False):
         if not table_should_exists: self.__create_table_if_not_exists(table)
         keys, values = self.__reorder_values(table, data)
         self.__alter_table(table, keys, data)
         keys, values = self.__reorder_values(table, data)
         tmp = ('?, ' * len(keys))[:-2]
         
-        if self.__check_if_exists(table, check_field, data[check_field]):
-            values = values[1:]
-            keys.remove('id')
-            fields = ', '.join([k+' = ?' for k in keys])
-            sql = 'update %s set %s where %s = ?' % (table, fields, check_field)
-            values.append(data[check_field])
-            self.c.execute(sql, values)
+        if check_field:
+            if self.__check_if_exists(table, check_field, data[check_field]):
+                values = values[1:]
+                keys.remove('id')
+                fields = ', '.join([k+' = ?' for k in keys])
+                sql = 'update %s set %s where %s = ?' % (table, fields, check_field)
+                values.append(data[check_field])
+                self.c.execute(sql, values)
         else:
             sql = 'insert into %s values (%s)' % (table, tmp)            
             self.c.execute(sql, values)
         self.conn.commit()
 
-        sql = 'select id from %s where %s = ?' % (table, check_field)
-        self.c.execute(sql, (data[check_field], ))
-        return self.c.fetchone()[0]
+        #sql = 'select id from %s where %s = ?' % (table, check_field)
+        #self.c.execute(sql, (data[check_field], ))
+        #return self.c.fetchone()[0]
 
-db = SQLDB('test.sqlite')
-db.save('LOW', dict(nome='Luca'), 'nome', False)   
+if __name__ == '__main__':
+    db = SQLDB('test.sqlite')
+    db.save('LOW', dict(nome='Luca'))   
