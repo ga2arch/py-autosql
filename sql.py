@@ -2,7 +2,7 @@ import sqlite3
 
 class SQLDB:
     def __init__(self, path):
-        self.map_type = dict(str='text', int='integer', float='real')
+        self.map_type = dict(str='text', int='integer', float='real', bool='integer')
         self.conn = sqlite3.connect(path)
         self.conn.text_factory = str
         self.c = self.conn.cursor()
@@ -28,7 +28,7 @@ class SQLDB:
         self.c.execute(sql, (value, ))
         result = self.c.fetchone()
         if not result: return False
-        return True
+        return result[0]
     
     def __get_table_schema(self, table):
         sql = 'select sql from sqlite_master where type = \'table\' and name = ?'
@@ -51,14 +51,15 @@ class SQLDB:
             r_key = t.strip().split(' ')[0]
             keys.append(r_key)
             if r_key in data.keys():
-                values.append(data[r_key])
+                value = data[r_key]
+                if type(value) == type(True):
+                    value = value == True and 1 or 0
+                values.append(value)
             else:
                 values.append(None)
         return keys, values
     
     def __alter_table(self, table, keys, data):
-        schema = self.__get_table_schema(table)
-        tmp = schema.split('(')[1].split(')')[0].split(',')
         new_keys = [k for k in data.keys() if k not in keys]
         for field in new_keys:
             field_type = self.map_type[type(field).__name__] + ' default null'
@@ -84,23 +85,28 @@ class SQLDB:
         keys, values = self.__reorder_values(table, data)
         tmp = ('?, ' * len(keys))[:-2]
         
-        if check_field:
-            if self.__check_if_exists(table, check_field, data[check_field]):
-                values = values[1:]
-                keys.remove('id')
-                fields = ', '.join([k+' = ?' for k in keys])
-                sql = 'update %s set %s where %s = ?' % (table, fields, check_field)
-                values.append(data[check_field])
-                self.c.execute(sql, values)
-        else:
+        if check_field: field_id = self.__check_if_exists(table, check_field, data[check_field])
+        if check_field and field_id:
+            values = values[1:]
+            keys.remove('id')
+            fields = ', '.join([k+' = ?' for k in keys])
+            sql = 'update %s set %s where %s = ?' % (table, fields, check_field)
+            values.append(data[check_field])
+            self.c.execute(sql, values)
+            self.conn.commit()
+        else:    
             sql = 'insert into %s values (%s)' % (table, tmp)            
             self.c.execute(sql, values)
-        self.conn.commit()
+            self.conn.commit()
+            sql = 'select max(id) from %s' % (table,)
+            self.c.execute(sql)
+            field_id = self.c.fetchone()[0]
+        return field_id
 
-        #sql = 'select id from %s where %s = ?' % (table, check_field)
-        #self.c.execute(sql, (data[check_field], ))
-        #return self.c.fetchone()[0]
+    def close(self):
+        self.conn.close()
 
 if __name__ == '__main__':
     db = SQLDB('test.sqlite')
-    db.save('LOW', dict(nome='Luca'))   
+    db.save('LOW', dict(nome='Luca', isgay=False), 'nome')  
+    db.close() 
