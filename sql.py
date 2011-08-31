@@ -55,7 +55,6 @@ class SQLDB:
                     value = value == True and 1 or 0
                 if type(value) == type(dict()):
                     value = self.__get_id(value)
-                    print value
                 values.append(value)
             else:
                 values.append(None)
