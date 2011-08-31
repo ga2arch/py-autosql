@@ -119,5 +119,5 @@ class SQLDB:
 if __name__ == '__main__':
     db = SQLDB('test.sqlite')
     db.save('Condominio', dict(via='valgardena'))
-    db.save('LOW', dict(nome='Denni', condominio=dict(table='Condominio', match_field='via', match_value='valgardena')), 'nome')  
+    db.save('LOW', dict(nome='Denni', condominio_id=dict(table='Condominio', match_field='via', match_value='valgardena')), 'nome')  
     db.close() 
