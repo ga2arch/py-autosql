@@ -16,7 +16,6 @@ class SQLDB:
         self.c.execute(sql)
         self.conn.commit()
      
-       
     def __create_table_if_not_exists(self, table):
         try:
             self.__get_table_schema(table)
@@ -43,28 +42,38 @@ class SQLDB:
         self.conn.commit()
     
     def __reorder_values(self, table, data):
-        keys = []
+        fields = []
         values = []
         schema = self.__get_table_schema(table)
         tmp = schema.split('(')[1].split(')')[0].split(',')
         for t in tmp:
             r_key = t.strip().split(' ')[0]
-            keys.append(r_key)
+            fields.append(r_key)
             if r_key in data.keys():
                 value = data[r_key]
                 if type(value) == type(True):
                     value = value == True and 1 or 0
+                if type(value) == type(dict()):
+                    value = self.__get_id(value)
+                    print value
                 values.append(value)
             else:
                 values.append(None)
-        return keys, values
+        return fields, values
     
-    def __alter_table(self, table, keys, data):
-        new_keys = [k for k in data.keys() if k not in keys]
-        for field in new_keys:
+    def __get_id(self, data):
+        sql = 'select id from %s where %s = ?' % (data['table'], data['match_field'])
+        self.c.execute(sql, (data['match_value'],))
+        result = self.c.fetchone()
+        if not result: raise Exception('Table doesn\'t exists')
+        return result[0]
+    
+    def __alter_table(self, table, fields, data):
+        fields_to_add = [k for k in data.keys() if k not in fields]
+        for field in fields_to_add:
             field_type = self.map_type[type(field).__name__] + ' default null'
-            try:self.__add_column(table, field, field_type)
-            except:pass
+            self.__add_column(table, field, field_type)
+        return fields_to_add
     
     def drop_tables(self):
         sql = 'select name from sqlite_master where type = \'table\''
@@ -78,20 +87,21 @@ class SQLDB:
         self.c.execute(sql)
         self.conn.commit()
         
-    def save(self, table, data, check_field=None, table_should_exists=False):
+    def save(self, table, data, match_field=None, table_should_exists=False):
         if not table_should_exists: self.__create_table_if_not_exists(table)
-        keys, values = self.__reorder_values(table, data)
-        self.__alter_table(table, keys, data)
-        keys, values = self.__reorder_values(table, data)
-        tmp = ('?, ' * len(keys))[:-2]
+        fields, values = self.__reorder_values(table, data)
+        fields_to_add = self.__alter_table(table, fields, data)
+        fields.extend(fields_to_add)
+        values.extend([data[f] for f in fields_to_add])
+        tmp = ('?, ' * len(fields))[:-2]
         
-        if check_field: field_id = self.__check_if_exists(table, check_field, data[check_field])
-        if check_field and field_id:
+        if match_field: field_id = self.__check_if_exists(table, match_field, data[match_field])
+        if match_field and field_id:
             values = values[1:]
-            keys.remove('id')
-            fields = ', '.join([k+' = ?' for k in keys])
-            sql = 'update %s set %s where %s = ?' % (table, fields, check_field)
-            values.append(data[check_field])
+            fields.remove('id')
+            tmp = ', '.join([k+' = ?' for k in fields])
+            sql = 'update %s set %s where %s = ?' % (table, tmp, match_field)
+            values.append(data[match_field])
             self.c.execute(sql, values)
             self.conn.commit()
         else:    
@@ -108,5 +118,6 @@ class SQLDB:
 
 if __name__ == '__main__':
     db = SQLDB('test.sqlite')
-    db.save('LOW', dict(nome='Luca', isgay=False), 'nome')  
+    db.save('Condominio', dict(via='valgardena'))
+    db.save('LOW', dict(nome='Denni', condominio=dict(table='Condominio', match_field='via', match_value='valgardena')), 'nome')  
     db.close() 
